@@ -58,7 +58,8 @@ if args.model in ['TxGNN']:
     TxGNN.pretrain(n_epoch = 1,
                learning_rate = 1e-3,
                batch_size = 1024,
-               train_print_per_n = 20)
+               train_print_per_n = 20,
+               use_gpu_sampling = args.gpu_sampling)
 
 ## here as a demo, the n_epoch is set to 30. Change it to n_epoch = 500 when you use it
 TxGNN.finetune(n_epoch = 500,
