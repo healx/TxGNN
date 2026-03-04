@@ -1,5 +1,6 @@
 from txgnn import TxData, TxGNN, TxEval
 import argparse
+import os
 
 parser = argparse.ArgumentParser('')
 parser.add_argument('--device', type=int, default=0)
@@ -10,7 +11,8 @@ parser.add_argument('--model', type=str, default='TxGNN', choices = ['TxGNN', 'G
 args = parser.parse_args()
 
 seed = args.seed
-TxData = TxData(data_folder_path = './data')
+data_dir = os.environ.get("TXGNN_DATA", "./data")
+TxData = TxData(data_folder_path=data_dir)
 TxData.prepare_split(split = args.split, seed = seed, no_kg = False)
 
 
@@ -64,4 +66,4 @@ result = TxEval.eval_disease_centric(disease_idxs = 'test_set',
                                      verbose = True, 
                                      save_result = True,
                                      return_raw = False,
-                                     save_name = './data/' + name + '_eval')
+                                     save_name = os.path.join(data_dir, name + '_eval'))
