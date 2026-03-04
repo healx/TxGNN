@@ -17,10 +17,52 @@ conda create --name txgnn_env python=3.8
 conda activate txgnn_env
 # Install PyTorch via https://pytorch.org/ with your CUDA versions
 conda install -c dglteam dgl-cuda{$CUDA_VERSION}==0.5.2 # checkout https://www.dgl.ai/pages/start.html for more info, as long as it is DGL 0.5.2
-pip install TxGNN
+pip install -e .
 ```
 
 Note that if you want to use disease-area split, you should also install PyG following [this instruction](https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html) since some legacy data processing code uses PyG utility functions.
+
+### Quick Start (Local Run)
+This will download the KG files into `./data` on first run.
+
+```python
+from txgnn import TxData, TxGNN, TxEval
+
+TxData = TxData(data_folder_path = './data')
+TxData.prepare_split(split = 'complex_disease', seed = 42)
+
+TxGNN = TxGNN(
+    data = TxData,
+    weight_bias_track = False,
+    proj_name = 'TxGNN',
+    exp_name = 'TxGNN',
+    device = 'cuda:0'
+)
+
+TxGNN.model_initialize(
+    n_hid = 100,
+    n_inp = 100,
+    n_out = 100,
+    proto = True,
+    proto_num = 3,
+    attention = False,
+    sim_measure = 'all_nodes_profile',
+    agg_measure = 'rarity',
+    num_walks = 200,
+    path_length = 2
+)
+
+# Optional pretraining
+# TxGNN.pretrain(n_epoch = 2, learning_rate = 1e-3, batch_size = 1024, train_print_per_n = 20)
+
+TxGNN.finetune(n_epoch = 30, learning_rate = 5e-4, train_print_per_n = 5, valid_per_n = 20)
+
+TxEval = TxEval(model = TxGNN)
+result = TxEval.eval_disease_centric(disease_idxs = 'test_set', show_plot = False, verbose = True, save_result = False)
+```
+
+### Demo Notebook
+The demo notebook `TxGNN_Demo.ipynb` mirrors the quick-start flow. It expects local data under `./data` by default.
 
 ### Core API Interface
 Using the API, you can (1) reproduce the results in our paper and (2) train TxGNN on your own drug repurposing dataset using a few lines of code, and also generate graph explanations. 
@@ -123,7 +165,7 @@ TxGNN.train_graphmask(relation = 'indication',
 You can retrieve and save the graph XAI gates (whether or not an edge is important) into a pkl file located as `SAVED_PATH/'graphmask_output_RELATION.pkl'`:
 
 ```python
-gates = TxGNN.retrieve_save_gates('SAVED_PATH')
+gates = TxGNN.retrieve_save_gates('SAVED_PATH', relation = 'indication')
 ```
 
 Of course, you can save and load graphmask model as well via:
