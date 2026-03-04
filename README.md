@@ -64,6 +64,13 @@ result = TxEval.eval_disease_centric(disease_idxs = 'test_set', show_plot = Fals
 ### Demo Notebook
 The demo notebook `TxGNN_Demo.ipynb` mirrors the quick-start flow. It expects local data under `./data` by default.
 
+### Smoke Test
+The smoke test only runs if the KG data already exists locally. Set `TXGNN_DATA` to your data folder if it isn't `./data`.
+
+```bash
+python reproduce/smoke_test.py
+```
+
 ### Core API Interface
 Using the API, you can (1) reproduce the results in our paper and (2) train TxGNN on your own drug repurposing dataset using a few lines of code, and also generate graph explanations. 
 
