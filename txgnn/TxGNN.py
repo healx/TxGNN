@@ -539,6 +539,7 @@ class TxGNN:
         
         ## iterate over layers. One at a time!
         for layer in reversed(list(range(self.graphmask_model.count_layers()))):
+            best_loss_sum = 100
             self.graphmask_model.enable_layer(layer) ## enable baselines and gates parameters
 
             for epoch in range(epochs_per_layer):
@@ -582,7 +583,7 @@ class TxGNN:
                         num_masked[1]/self.G.number_of_edges())
                 )
 
-                if self.weight_bias_track == 'True':
+                if self.weight_bias_track:
                     self.wandb.log({'divergence': g_moving_average.get_value(),
                               'penalty': f_moving_average.get_value(),
                               'bce_masked': loss_pred,
@@ -602,7 +603,7 @@ class TxGNN:
             
         loss_sum, metrics = evaluate_graphmask(self.best_graphmask_model, self.G, self.g_test_pos, self.g_test_neg, relation, epoch, mode = 'testing', allowance = allowance, penalty_scaling = penalty_scaling, etypes_train = etypes_train, device = self.device, weight_bias_track = self.weight_bias_track, wandb = self.wandb, no_base = no_base)
         
-        if self.weight_bias_track == 'True':
+        if self.weight_bias_track:
             self.wandb.log(metrics)
         return metrics
         
@@ -675,8 +676,13 @@ class TxGNN:
         
         return whole_graph, test_graph
                 
-    def retrieve_save_gates(self, path):
-        _, scores, _ = self.retrieve_gates_scores_penalties()
+    def retrieve_save_gates(self, path, relation = None, no_base = False):
+        if relation is None:
+            if "relation" in self.__dict__:
+                relation = self.relation
+            else:
+                raise ValueError("relation is required (or call train_graphmask first).")
+        _, scores, _ = self.retrieve_gates_scores_penalties(relation, no_base = no_base)
         
         df_raw = pd.read_csv(os.path.join(self.data_folder, 'kg.csv'))
         df = self.df
@@ -721,7 +727,7 @@ class TxGNN:
             df_temp[self.relation + '_layer1_att'] = scores[0][etype].reshape(-1,)
             df_temp[self.relation + '_layer2_att'] = scores[1][etype].reshape(-1,)
 
-            all_att_df = all_att_df.append(df_temp)
+            all_att_df = pd.concat([all_att_df, df_temp], ignore_index = True)
         
-        all_att_df.to_pickle(os.path.join(path, 'graphmask_output_' + self.relation + '.pkl'))
+        all_att_df.to_pickle(os.path.join(path, 'graphmask_output_' + relation + '.pkl'))
         return all_att_df

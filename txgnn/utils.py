@@ -42,6 +42,7 @@ def dataverse_download(url, save_path):
     else:
         print("Local copy not detected... Downloading...")
         response = requests.get(url, stream=True)
+        response.raise_for_status()
         total_size_in_bytes= int(response.headers.get('content-length', 0))
         block_size = 1024
         progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
@@ -151,9 +152,9 @@ def random_fold(df, fold_seed, frac):
         train_val = df_temp[~df_temp.index.isin(test.index)]
         val = train_val.sample(frac = val_frac/(1-test_frac), replace = False, random_state = 1)
         train = train_val[~train_val.index.isin(val.index)]
-        df_train = df_train.append(train)
-        df_valid = df_valid.append(val)
-        df_test = df_test.append(test)        
+        df_train = pd.concat([df_train, train], ignore_index = True)
+        df_valid = pd.concat([df_valid, val], ignore_index = True)
+        df_test = pd.concat([df_test, test], ignore_index = True)
         
     return {'train': df_train.reset_index(drop = True), 
             'valid': df_valid.reset_index(drop = True), 
@@ -215,11 +216,11 @@ def complex_disease_fold(df, fold_seed, frac):
         df_temp = df[df.relation == i]
         test = df_temp.sample(frac = test_frac, replace = False, random_state = fold_seed)
         train_val = df_temp[~df_temp.index.isin(test.index)]
-        val = train_val.sample(frac = val_frac/(1-test_frac), replace = False, random_state = 1)
+        val = train_val.sample(frac = val_frac/(1-test_frac), replace = False, random_state = fold_seed)
         train = train_val[~train_val.index.isin(val.index)]
-        df_train = df_train.append(train)
-        df_valid = df_valid.append(val)
-        df_test = df_test.append(test) 
+        df_train = pd.concat([df_train, train], ignore_index = True)
+        df_valid = pd.concat([df_valid, val], ignore_index = True)
+        df_test = pd.concat([df_test, test], ignore_index = True)
     
     df_train = pd.concat([df_train, df_dd_train])
     df_valid = pd.concat([df_valid, df_dd_valid])
@@ -271,9 +272,9 @@ def few_edeges_to_kg_fold(df, fold_seed, frac):
         train_val = df_temp[~df_temp.index.isin(test.index)]
         val = train_val.sample(frac = val_frac/(1-test_frac), replace = False, random_state = 1)
         train = train_val[~train_val.index.isin(val.index)]
-        df_train = df_train.append(train)
-        df_valid = df_valid.append(val)
-        df_test = df_test.append(test) 
+        df_train = pd.concat([df_train, train], ignore_index = True)
+        df_valid = pd.concat([df_valid, val], ignore_index = True)
+        df_test = pd.concat([df_test, test], ignore_index = True)
     
     df_train = pd.concat([df_train, df_dd_train])
     df_valid = pd.concat([df_valid, df_dd_valid])
@@ -319,9 +320,9 @@ def few_edeges_to_indications_fold(df, fold_seed, frac):
         train_val = df_temp[~df_temp.index.isin(test.index)]
         val = train_val.sample(frac = val_frac/(1-test_frac), replace = False, random_state = 1)
         train = train_val[~train_val.index.isin(val.index)]
-        df_train = df_train.append(train)
-        df_valid = df_valid.append(val)
-        df_test = df_test.append(test) 
+        df_train = pd.concat([df_train, train], ignore_index = True)
+        df_valid = pd.concat([df_valid, val], ignore_index = True)
+        df_test = pd.concat([df_test, test], ignore_index = True)
     
     df_train = pd.concat([df_train, df_dd_train])
     df_valid = pd.concat([df_valid, df_dd_valid])
@@ -369,9 +370,9 @@ def create_fold_cv(df, split_num, num_splits):
         train_val = df_temp[~df_temp.index.isin(test.index)]
         val = train_val.sample(frac = val_frac/(1-test_frac), replace = False, random_state = 1)
         train = train_val[~train_val.index.isin(val.index)]
-        df_train = df_train.append(train)
-        df_valid = df_valid.append(val)
-        df_test = df_test.append(test) 
+        df_train = pd.concat([df_train, train], ignore_index = True)
+        df_valid = pd.concat([df_valid, val], ignore_index = True)
+        df_test = pd.concat([df_test, test], ignore_index = True)
     
     df_train = pd.concat([df_train, df_dd_train])
     df_valid = pd.concat([df_valid, df_dd_valid])
@@ -451,10 +452,25 @@ def construct_negative_graph_each_etype(graph, k, etype, method, weights, device
             neg_dst = torch.Tensor([])
     return {etype: (neg_src.to(device), neg_dst.to(device))}
 
-def construct_negative_graph(graph, k, device):
+def construct_negative_graph(graph, k, device, method = 'fix_dst', weights = None):
+    if weights is None:
+        if method == 'multinomial_src':
+            weights = {etype: graph.out_degrees(etype=etype).float() ** 0.75 for etype in graph.canonical_etypes}
+        elif method == 'multinomial_dst':
+            weights = {etype: graph.in_degrees(etype=etype).float() ** 0.75 for etype in graph.canonical_etypes}
+        elif method == 'inverse_dst':
+            weights = {etype: -graph.in_degrees(etype=etype).float() ** 0.75 for etype in graph.canonical_etypes}
+        elif method == 'inverse_src':
+            weights = {etype: -graph.out_degrees(etype=etype).float() ** 0.75 for etype in graph.canonical_etypes}
+        elif method == 'fix_dst':
+            weights = {etype: (graph.in_degrees(etype=etype) > 0).float() for etype in graph.canonical_etypes}
+        elif method == 'fix_src':
+            weights = {etype: (graph.out_degrees(etype=etype) > 0).float() for etype in graph.canonical_etypes}
+        else:
+            weights = {}
     out = {}   
     for etype in graph.canonical_etypes:
-        out.update(construct_negative_graph_each_etype(graph, k, etype, device))
+        out.update(construct_negative_graph_each_etype(graph, k, etype, method, weights, device))
     return dgl.heterograph(out, num_nodes_dict={ntype: graph.number_of_nodes(ntype) for ntype in graph.ntypes})
 
 class Minibatch_NegSampler(object):
@@ -899,7 +915,7 @@ def reverse_rel_generation(df, df_valid, unique_rel):
         if i[0] != i[2]:
             # bi identity
             temp["relation"] = 'rev_' + i[1]
-        df_valid = df_valid.append(temp)
+        df_valid = pd.concat([df_valid, temp], ignore_index = True)
     return df_valid.reset_index(drop = True)
 
 
@@ -1476,7 +1492,10 @@ def find_two_hops(x_idx_value, x_type_value, df):
 
     # Find 2-hop neighbors by joining
     two_hop = df.merge(neighbors_df, left_on=['x_idx', 'x_type'], right_on=['idx', 'type'])
-    two_hop = two_hop.append(df.merge(neighbors_df, left_on=['y_idx', 'y_type'], right_on=['idx', 'type']))
+    two_hop = pd.concat(
+        [two_hop, df.merge(neighbors_df, left_on=['y_idx', 'y_type'], right_on=['idx', 'type'])],
+        ignore_index = True
+    )
 
     # Combine 1-hop and 2-hop neighbors and remove duplicates
     return pd.concat([one_hop, two_hop]).drop_duplicates()
