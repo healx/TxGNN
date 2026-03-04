@@ -474,7 +474,7 @@ def construct_negative_graph(graph, k, device, method = 'fix_dst', weights = Non
     return dgl.heterograph(out, num_nodes_dict={ntype: graph.number_of_nodes(ntype) for ntype in graph.ntypes})
 
 class Minibatch_NegSampler(object):
-    def __init__(self, g, k, method):
+    def __init__(self, g, k, method, device=None):
         if method == 'multinomial_dst':
             self.weights = {
                 etype: g.in_degrees(etype=etype).float() ** 0.75
@@ -485,6 +485,9 @@ class Minibatch_NegSampler(object):
                 etype: (g.in_degrees(etype=etype) > 0).float()
                 for etype in g.canonical_etypes
             }
+        self.device = device
+        if self.device is not None:
+            self.weights = {etype: w.to(self.device) for etype, w in self.weights.items()}
         self.k = k
 
     def __call__(self, g, eids_dict):
@@ -493,6 +496,9 @@ class Minibatch_NegSampler(object):
             src, _ = g.find_edges(eids, etype=etype)
             src = src.repeat_interleave(self.k)
             dst = self.weights[etype].multinomial(len(src), replacement=True)
+            if self.device is not None:
+                src = src.to(self.device)
+                dst = dst.to(self.device)
             result_dict[etype] = (src, dst)
         return result_dict
         

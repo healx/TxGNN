@@ -122,12 +122,17 @@ class TxGNN:
                   ).to(self.device)    
         self.best_model = self.model
         
-    def pretrain(self, n_epoch = 1, learning_rate = 1e-3, batch_size = 1024, train_print_per_n = 20, sweep_wandb = None):
+    def pretrain(self, n_epoch = 1, learning_rate = 1e-3, batch_size = 1024, train_print_per_n = 20, sweep_wandb = None, use_gpu_sampling = False):
         
         if self.no_kg:
             raise ValueError('During No-KG ablation, pretraining is infeasible because it is the same as finetuning...')
             
-        self.G = self.G.to('cpu')
+        if use_gpu_sampling:
+            self.G = self.G.to(self.device)
+            dataloader_device = self.device
+        else:
+            self.G = self.G.to('cpu')
+            dataloader_device = None
         print('Creating minibatch pretraining dataloader...')
         train_eid_dict = {etype: self.G.edges(form = 'eid', etype =  etype) for etype in self.G.canonical_etypes}
         sampler = dgl.dataloading.MultiLayerFullNeighborSampler(2)
@@ -143,12 +148,13 @@ class TxGNN:
         
         edge_sampler = dgl.dataloading.as_edge_prediction_sampler(
             sampler,
-            negative_sampler=Minibatch_NegSampler(self.G, 1, 'fix_dst'),
+            negative_sampler=Minibatch_NegSampler(self.G, 1, 'fix_dst', device=dataloader_device),
         )
         dataloader = dgl.dataloading.DataLoader(
             self.G,
             train_eid_dict,
             edge_sampler,
+            device=dataloader_device,
             batch_size=batch_size,
             shuffle=True,
             drop_last=False,
