@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "TxGNN"
 dynamic = ["version", "readme"]
 description = "TxGNN"
-requires-python = ">=3.8"
+requires-python = ">=3.8,<3.12"
 license = {text = "MIT"}
 authors = [{name = "TxGNN Team", email = "kexinh@stanford.edu"}]
 urls = {Homepage = "https://github.com/mims-harvard/TxGNN"}
@@ -22,7 +22,7 @@ dependencies = [
   "torch @ https://download.pytorch.org/whl/cu124/torch-2.4.0%2Bcu124-cp311-cp311-linux_x86_64.whl ; sys_platform == \"linux\" and python_full_version == \"3.11.*\"",
   "torch>=2.4,<2.5 ; sys_platform != \"linux\" or python_full_version != \"3.11.*\"",
   "dgl==2.4.0+cu124 ; sys_platform == \"linux\" and python_full_version == \"3.11.*\"",
-  "dgl>=2.4,<2.5 ; sys_platform != \"linux\" or python_full_version != \"3.11.*\"",
+  "dgl>=2.4,<2.5 ; sys_platform != \"linux\" or python_full_version != \"3.11.*\""
 ]
 
 [tool.setuptools.dynamic]
@@ -34,3 +34,11 @@ exclude = ["test"]
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.uv]
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64' and python_full_version == '3.11.*'"]
+
+[dependency-groups]
+dev = [
+    "ruff",
+]
