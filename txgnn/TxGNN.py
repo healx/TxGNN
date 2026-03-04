@@ -141,15 +141,21 @@ class TxGNN:
             else:
                 reverse_etypes[rel] = rel
         
-        dataloader = dgl.dataloading.EdgeDataLoader(
-            self.G, train_eid_dict, sampler,
+        edge_sampler = dgl.dataloading.as_edge_prediction_sampler(
+            sampler,
             negative_sampler=Minibatch_NegSampler(self.G, 1, 'fix_dst'),
+        )
+        dataloader = dgl.dataloading.DataLoader(
+            self.G,
+            train_eid_dict,
+            edge_sampler,
             batch_size=batch_size,
             shuffle=True,
             drop_last=False,
             #exclude='reverse_types',
             #reverse_etypes = reverse_etypes,
-            num_workers=0)
+            num_workers=0,
+        )
         
         optimizer = torch.optim.AdamW(self.model.parameters(), lr = learning_rate)
 
