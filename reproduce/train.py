@@ -7,6 +7,8 @@ parser.add_argument('--device', type=int, default=0)
 parser.add_argument('--split', type=str, choices = ['random', 'complex_disease', 'complex_disease_cv', 'disease_eval', 'cell_proliferation', 'mental_health', 'cardiovascular', 'anemia', 'adrenal_gland', 'autoimmune', 'metabolic_disorder', 'diabetes', 'neurodigenerative', 'full_graph', 'downstream_pred', 'few_edeges_to_kg'])
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--model', type=str, default='TxGNN', choices = ['TxGNN', 'GNN', 'TxGAT'])
+parser.add_argument('--resume', action='store_true', help='skip runs with existing outputs')
+parser.add_argument('--gpu-sampling', action='store_true', help='use GPU graph sampling during pretrain')
 
 args = parser.parse_args()
 
@@ -17,7 +19,14 @@ TxData.prepare_split(split = args.split, seed = seed, no_kg = False)
 
 
 name = '_'.join([args.model, str(args.seed), args.split])
-TxGNN = TxGNN(data = TxData, 
+model_dir = os.path.join("saved_models", name)
+eval_path = os.path.join(data_dir, name + "_eval")
+
+if args.resume and os.path.exists(model_dir) and os.path.exists(eval_path):
+    print(f"Skipping {name}: outputs already exist.")
+    raise SystemExit(0)
+
+TxGNN = TxGNN(data = TxData,
               weight_bias_track = False,
               proj_name = 'TxGNN_Baselines',
               exp_name = name,
@@ -33,10 +42,10 @@ if args.model == 'TxGAT':
     attention = True
 else:
     attention = False
-    
-TxGNN.model_initialize(n_hid = 100, 
-                      n_inp = 100, 
-                      n_out = 100, 
+
+TxGNN.model_initialize(n_hid = 100,
+                      n_inp = 100,
+                      n_out = 100,
                       proto = proto,
                       proto_num = 3,
                       attention = attention,
@@ -46,24 +55,24 @@ TxGNN.model_initialize(n_hid = 100,
 if args.model in ['TxGNN']:
 
     ## here we did not run this, since the output is too long to fit into the notebook
-    TxGNN.pretrain(n_epoch = 1, 
+    TxGNN.pretrain(n_epoch = 1,
                learning_rate = 1e-3,
-               batch_size = 1024, 
+               batch_size = 1024,
                train_print_per_n = 20)
 
 ## here as a demo, the n_epoch is set to 30. Change it to n_epoch = 500 when you use it
-TxGNN.finetune(n_epoch = 500, 
+TxGNN.finetune(n_epoch = 500,
                learning_rate = 5e-4,
                train_print_per_n = 5,
                valid_per_n = 20)
 
-TxGNN.save_model('./saved_models/' + name)
+TxGNN.save_model(model_dir)
 
 from txgnn import TxEval
 TxEval = TxEval(model = TxGNN)
-result = TxEval.eval_disease_centric(disease_idxs = 'test_set', 
-                                     show_plot = False, 
-                                     verbose = True, 
+result = TxEval.eval_disease_centric(disease_idxs = 'test_set',
+                                     show_plot = False,
+                                     verbose = True,
                                      save_result = True,
                                      return_raw = False,
-                                     save_name = os.path.join(data_dir, name + '_eval'))
+                                     save_name = eval_path)
