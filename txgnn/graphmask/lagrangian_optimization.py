@@ -2,7 +2,6 @@ import torch
 
 
 class LagrangianOptimization:
-
     min_alpha = None
     max_alpha = None
     device = None
@@ -10,7 +9,16 @@ class LagrangianOptimization:
     batch_size_multiplier = None
     update_counter = 0
 
-    def __init__(self, original_optimizer, device, init_alpha=0.55, min_alpha=-2, max_alpha=30, alpha_optimizer_lr=1e-2, batch_size_multiplier=None):
+    def __init__(
+        self,
+        original_optimizer,
+        device,
+        init_alpha=0.55,
+        min_alpha=-2,
+        max_alpha=30,
+        alpha_optimizer_lr=1e-2,
+        batch_size_multiplier=None,
+    ):
         self.min_alpha = min_alpha
         self.max_alpha = max_alpha
         self.device = device
@@ -18,7 +26,9 @@ class LagrangianOptimization:
         self.update_counter = 0
 
         self.alpha = torch.tensor(init_alpha, device=device, requires_grad=True)
-        self.optimizer_alpha = torch.optim.RMSprop([self.alpha], lr=alpha_optimizer_lr, centered=True)
+        self.optimizer_alpha = torch.optim.RMSprop(
+            [self.alpha], lr=alpha_optimizer_lr, centered=True
+        )
         self.original_optimizer = original_optimizer
 
     def update(self, f, g):

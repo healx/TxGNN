@@ -1,5 +1,4 @@
 class MovingAverage:
-
     window_size = None
     current_value = None
     observations = None

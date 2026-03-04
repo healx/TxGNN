@@ -9,7 +9,9 @@ def main():
     kg_path = os.path.join(data_dir, "kg.csv")
 
     if not os.path.exists(kg_path):
-        print(f"Smoke test skipped: {kg_path} not found. Set TXGNN_DATA to an existing data folder.")
+        print(
+            f"Smoke test skipped: {kg_path} not found. Set TXGNN_DATA to an existing data folder."
+        )
         return 0
 
     tx_data = TxData(data_folder_path=data_dir)
