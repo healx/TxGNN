@@ -1,31 +1,24 @@
-import dgl
-from dgl.ops import edge_softmax
+import copy
 import math
+import os
+
+import dgl.function as fn
 import numpy as np
-import argparse
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import dgl.function as fn
-from torch.utils import data
-import pandas as pd
-import copy
-import os
-import random
 
-import warnings
-
-warnings.filterwarnings("ignore")
+from .graphmask.multiple_inputs_layernorm_linear import MultipleInputsLayernormLinear
+from .graphmask.sigmoid_penalty import SoftConcrete
+from .graphmask.squeezer import Squeezer
 from .utils import (
-    sim_matrix,
+    convert2str,
     exponential,
     obtain_disease_profile,
     obtain_protein_random_walk_profile,
-    convert2str,
+    sim_matrix,
 )
-from .graphmask.multiple_inputs_layernorm_linear import MultipleInputsLayernormLinear
-from .graphmask.squeezer import Squeezer
-from .graphmask.sigmoid_penalty import SoftConcrete
 
 
 class DistMultPredictor(nn.Module):
@@ -316,7 +309,7 @@ class DistMultPredictor(nn.Module):
                                         ]
                                     )
                                 ]
-                            except:
+                            except Exception:
                                 disease_etypes = [
                                     "disease_disease",
                                     "rev_disease_protein",
@@ -497,6 +490,8 @@ class DistMultPredictor(nn.Module):
                                 proto_emb = out
                             h["disease"][h_disease["disease_query_id"]] = proto_emb
                         else:
+                            sim_emb_src = src_h
+                            sim_emb_dst = dst_h
                             if self.agg_measure == "learn":
                                 coef_src = self.m(
                                     self.W_gate[src](
@@ -509,7 +504,7 @@ class DistMultPredictor(nn.Module):
                                     )
                                 )
                             elif self.agg_measure == "rarity":
-                                # give high weights to proto embeddings for nodes that have low degrees
+                                # give high weights to proto embeddings for nodes with low degrees
                                 coef_src = exponential(
                                     G.out_degrees(etype=etype)[
                                         torch.where(graph.out_degrees(etype=etype) != 0)
@@ -604,10 +599,10 @@ class AttHeteroRGCNLayer(nn.Module):
                         ],
                         dim=1,
                     )
-        except:
+        except Exception as exc:
             print(edges.src.keys())
             print(edges.dst.keys())
-            raise ValueError
+            raise ValueError from exc
         a = self.attn_fc[etype](wh2)
         return {"e_%s" % etype: F.leaky_relu(a)}
 
@@ -634,7 +629,7 @@ class AttHeteroRGCNLayer(nn.Module):
             for srctype, etype, dsttype in etypes_all:
                 try:
                     G.apply_edges(self.edge_attention, etype=etype)
-                except:
+                except Exception:
                     print(etype)
                     # Assuming 'etype' is your edge type of interest
                     src, dst, eid = G.edges(etype=etype, form="all")

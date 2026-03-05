@@ -1,8 +1,10 @@
+import os
+
 import numpy as np
 import pandas as pd
 import torch
+
 from .do_obo_parser import OBOReader as DO_Reader
-import os
 
 dirname = os.path.dirname(__file__)
 
@@ -63,35 +65,45 @@ class DataSplitter:
             .astype("str")
         )
         idx1 = (
-            self.nodes.query('node_id in @mondo and node_source == "MONDO"')
+            self.nodes[
+                self.nodes["node_id"].isin(mondo)
+                & (self.nodes["node_source"] == "MONDO")
+            ]
             .get("node_index")
             .values
         )
         mondo_grp = (
-            self.grouped_diseases.query('node_id in @mondo and node_source == "MONDO"')
+            self.grouped_diseases[
+                self.grouped_diseases["node_id"].isin(mondo)
+                & (self.grouped_diseases["node_source"] == "MONDO")
+            ]
             .get(["group_id_bert"])
             .drop_duplicates()
             .values.reshape(-1)
             .astype("str")
         )
         idx2 = (
-            self.nodes.query('node_id in @mondo_grp and node_source == "MONDO_grouped"')
+            self.nodes[
+                self.nodes["node_id"].isin(mondo_grp)
+                & (self.nodes["node_source"] == "MONDO_grouped")
+            ]
             .get("node_index")
             .values
         )
-        node_idx = np.unique(np.concatenate([idx1, idx2]))
-        return node_idx
+        return np.unique(np.concatenate([idx1, idx2]))
 
     def get_nodes_df_for_diod(self, code):
         node_idx = self.get_nodes_for_doid(code)
-        df = self.nodes.query("node_index in @node_idx")
-        return df
+        return self.nodes[self.nodes["node_index"].isin(node_idx)]
 
     def get_one_hop_edge_group(self, nodes, mask_ratio=0.1, add_drug_dis=True):
         if add_drug_dis:
-            x = self.edges.query("x_index in @nodes or y_index in @nodes").query(
-                'relation=="contraindication" or relation=="indication" or relation=="off-label use"'
-            )
+            rels = ["contraindication", "indication", "off-label use"]
+            x = self.edges[
+                (self.edges["x_index"].isin(nodes))
+                | (self.edges["y_index"].isin(nodes))
+            ]
+            x = x[x["relation"].isin(rels)]
             drug_dis_edges = x.get(["x_index", "y_index"]).values.T
             print("drug_dis_edges.shape: ", drug_dis_edges.shape)
 
@@ -118,9 +130,12 @@ class DataSplitter:
 
     def get_edge_group(self, nodes, test_size=0.05, add_drug_dis=True):
         if add_drug_dis:
-            x = self.edges.query("x_index in @nodes or y_index in @nodes").query(
-                'relation=="contraindication" or relation=="indication" or relation=="off-label use"'
-            )
+            rels = ["contraindication", "indication", "off-label use"]
+            x = self.edges[
+                (self.edges["x_index"].isin(nodes))
+                | (self.edges["y_index"].isin(nodes))
+            ]
+            x = x[x["relation"].isin(rels)]
             drug_dis_edges = x.get(["x_index", "y_index"]).values.T
             print("drug_dis_edges.shape: ", drug_dis_edges.shape)
 

@@ -1,8 +1,9 @@
-import torch
-from torch.nn.parameter import Parameter
-import numpy as np
-from torch import sigmoid
 import copy
+
+import numpy as np
+import torch
+from torch import sigmoid
+from torch.nn.parameter import Parameter
 
 
 class HardConcrete(torch.nn.Module):

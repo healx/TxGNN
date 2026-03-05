@@ -1,24 +1,16 @@
 import os
-import math
-import copy
-import pickle
+import warnings
 
-import numpy as np
 import pandas as pd
-from tqdm.auto import tqdm
-import dgl
 
 from .utils import (
-    preprocess_kg,
-    create_split,
-    process_disease_area_split,
-    create_dgl_graph,
-    evaluate_graph_construct,
     convert2str,
+    create_dgl_graph,
+    create_split,
     data_download_wrapper,
+    preprocess_kg,
+    process_disease_area_split,
 )
-
-import warnings
 
 warnings.filterwarnings("ignore")
 
@@ -73,7 +65,9 @@ class TxData:
             "few_edeges_to_indications",
         ]:
             raise ValueError(
-                "Please select one of the following supported splits: 'random', 'complex_disease', 'disease_eval', 'cell_proliferation', 'mental_health', 'cardiovascular', 'anemia', 'adrenal_gland'"
+                "Please select one of the following supported splits: 'random', "
+                "'complex_disease', 'disease_eval', 'cell_proliferation', "
+                "'mental_health', 'cardiovascular', 'anemia', 'adrenal_gland'"
             )
 
         if disease_eval_idx is not None:
@@ -111,7 +105,8 @@ class TxData:
         else:
             if os.path.exists(os.path.join(self.data_folder, "kg.csv")):
                 print(
-                    "First time usage... Mapping TxData raw KG to directed csv... it takes several minutes..."
+                    "First time usage... Mapping TxData raw KG to directed csv... "
+                    "it takes several minutes..."
                 )
                 preprocess_kg(self.data_folder, split, test_size, one_hop, mask_ratio)
                 df = pd.read_csv(kg_path)

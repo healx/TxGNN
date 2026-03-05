@@ -1,8 +1,7 @@
-import torch
-from torch.nn.parameter import Parameter
-import numpy as np
-from torch import sigmoid
 import copy
+
+import torch
+from torch import sigmoid
 
 
 class SoftConcrete(torch.nn.Module):

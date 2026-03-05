@@ -1,34 +1,32 @@
-import os
-import math
-import argparse
 import copy
+import os
 import pickle
-from argparse import ArgumentParser
-
-import numpy as np
-import pandas as pd
-from tqdm.auto import tqdm
-import matplotlib.pyplot as plt
 
 import dgl
-from dgl.data.utils import save_graphs
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils import data
 
-from .model import *
-from .utils import *
-
-from .TxData import TxData
-from .TxEval import TxEval
-
-from .graphmask.moving_average import MovingAverage
 from .graphmask.lagrangian_optimization import LagrangianOptimization
-
-import warnings
-
-warnings.filterwarnings("ignore")
+from .graphmask.moving_average import MovingAverage
+from .model import HeteroRGCN
+from .utils import (
+    Full_Graph_NegSampler,
+    Minibatch_NegSampler,
+    convert2str,
+    disable_all_gradients,
+    evaluate_fb,
+    evaluate_graph_construct,
+    evaluate_graphmask,
+    get_all_metrics_fb,
+    get_n_params,
+    get_wandb_log_dict,
+    initialize_node_embedding,
+    print_dict,
+    to_wandb_table,
+)
 
 torch.manual_seed(0)
 # device = torch.device("cuda:0")
@@ -159,7 +157,8 @@ class TxGNN:
 
         if self.no_kg:
             raise ValueError(
-                "During No-KG ablation, pretraining is infeasible because it is the same as finetuning..."
+                "During No-KG ablation, pretraining is infeasible because it is the same "
+                "as finetuning..."
             )
 
         if use_gpu_sampling:
@@ -283,7 +282,9 @@ class TxGNN:
                         )
 
                     print(
-                        "Epoch: %d Step: %d LR: %.5f Loss %.4f, Pretrain Micro AUROC %.4f Pretrain Micro AUPRC %.4f Pretrain Macro AUROC %.4f Pretrain Macro AUPRC %.4f"
+                        "Epoch: %d Step: %d LR: %.5f Loss %.4f, Pretrain Micro AUROC %.4f "
+                        "Pretrain Micro AUPRC %.4f Pretrain Macro AUROC %.4f "
+                        "Pretrain Macro AUPRC %.4f"
                         % (
                             epoch,
                             step,
@@ -379,7 +380,9 @@ class TxGNN:
                     self.wandb.log(temp_d)
 
                 print(
-                    "Epoch: %d LR: %.5f Loss %.4f, Train Micro AUROC %.4f Train Micro AUPRC %.4f Train Macro AUROC %.4f Train Macro AUPRC %.4f"
+                    "Epoch: %d LR: %.5f Loss %.4f, Train Micro AUROC %.4f "
+                    "Train Micro AUPRC %.4f Train Macro AUROC %.4f "
+                    "Train Macro AUPRC %.4f"
                     % (
                         epoch,
                         optimizer.param_groups[0]["lr"],
@@ -427,7 +430,9 @@ class TxGNN:
                     self.best_model = copy.deepcopy(self.model)
 
                 print(
-                    "Epoch: %d LR: %.5f Validation Loss %.4f,  Validation Micro AUROC %.4f Validation Micro AUPRC %.4f Validation Macro AUROC %.4f Validation Macro AUPRC %.4f (Best Macro AUROC %.4f)"
+                    "Epoch: %d LR: %.5f Validation Loss %.4f, Validation Micro AUROC %.4f "
+                    "Validation Micro AUPRC %.4f Validation Macro AUROC %.4f "
+                    "Validation Macro AUPRC %.4f (Best Macro AUROC %.4f)"
                     % (
                         epoch,
                         optimizer.param_groups[0]["lr"],
@@ -498,7 +503,8 @@ class TxGNN:
         )
 
         print(
-            "Testing Loss %.4f Testing Micro AUROC %.4f Testing Micro AUPRC %.4f Testing Macro AUROC %.4f Testing Macro AUPRC %.4f"
+            "Testing Loss %.4f Testing Micro AUROC %.4f Testing Micro AUPRC %.4f "
+            "Testing Macro AUROC %.4f Testing Macro AUPRC %.4f"
             % (loss, micro_auroc, micro_auprc, macro_auroc, macro_auprc)
         )
 
@@ -566,10 +572,9 @@ class TxGNN:
         g = self.G
         df_in = df[["x_idx", "relation", "y_idx"]]
         for etype in g.canonical_etypes:
-            try:
-                df_temp = df_in[df_in.relation == etype[1]]
-            except:
-                print(etype[1])
+            df_temp = df_in[df_in.relation == etype[1]]
+            if df_temp.empty:
+                continue
             src = (
                 torch.Tensor(df_temp.x_idx.values).to(self.device).to(dtype=torch.int64)
             )
@@ -604,7 +609,8 @@ class TxGNN:
     def retrieve_sim_diseases(self, relation, k=5, path=None):
         if relation not in ["indication", "contraindication", "off-label"]:
             raise ValueError(
-                "Please select the following three relations: 'indication', 'contraindication', 'off-label' !"
+                "Please select the following three relations: 'indication', "
+                "'contraindication', 'off-label'!"
             )
 
         etypes = self.dd_etypes
@@ -632,16 +638,12 @@ class TxGNN:
         elif relation == "off-label":
             etype = ("disease", "rev_off-label use", "drug")
 
-        src, dst = etype[0], etype[2]
+        src = etype[0]
         src_rel_idx = out_degrees[etype]
-        dst_rel_idx = in_degrees[etype]
         src_h = h[src][src_rel_idx]
-        dst_h = h[dst][dst_rel_idx]
 
         src_rel_ids_keys = out_degrees[etype]
-        dst_rel_ids_keys = in_degrees[etype]
         src_h_keys = h[src][src_rel_ids_keys]
-        dst_h_keys = h[dst][dst_rel_ids_keys]
 
         h_disease = {}
         h_disease["disease_query"] = src_h
@@ -665,7 +667,7 @@ class TxGNN:
         ## get these diseases embedding
         embed = h_disease["disease_key"][torch.topk(sim, k + 1).indices[:, 1:]]
         ## augmented disease embedding
-        out = torch.mul(embed.to("cpu"), coef.unsqueeze(dim=2)).sum(dim=1)
+        torch.mul(embed.to("cpu"), coef.unsqueeze(dim=2)).sum(dim=1)
 
         similar_diseases = torch.topk(sim, k + 1).indices[:, 1:]
         similar_diseases = similar_diseases.apply_(
@@ -722,7 +724,8 @@ class TxGNN:
 
         if relation not in ["indication", "contraindication", "off-label"]:
             raise ValueError(
-                "Please select the following three relations: 'indication', 'contraindication', 'off-label' !"
+                "Please select the following three relations: 'indication', "
+                "'contraindication', 'off-label'!"
             )
 
         if relation == "indication":
@@ -741,7 +744,7 @@ class TxGNN:
                 ("disease", "rev_off-label use", "drug"),
             ]
         else:
-            etypes_train = dd_etypes
+            etypes_train = self.dd_etypes
 
         best_loss_sum = 100
 
@@ -768,8 +771,6 @@ class TxGNN:
 
         f_moving_average = MovingAverage(window_size=moving_average_window_size)
         g_moving_average = MovingAverage(window_size=moving_average_window_size)
-
-        best_sparsity = 1.01
 
         neg_sampler = Full_Graph_NegSampler(self.G, 1, "fix_dst", self.device)
         loss_fct = nn.MSELoss()
@@ -849,7 +850,9 @@ class TxGNN:
                 g_moving_average.register(float(loss.mean().item()))
 
                 print(
-                    "Running epoch {0:n} of GraphMask training. Mean divergence={1:.4f}, mean penalty={2:.4f}, bce_update={3:.4f}, bce_original={4:.4f}, num_masked_l1={5:.4f}, num_masked_l2={6:.4f}".format(
+                    "Running epoch {0:n} of GraphMask training. Mean divergence={1:.4f}, "
+                    "mean penalty={2:.4f}, bce_update={3:.4f}, bce_original={4:.4f}, "
+                    "num_masked_l1={5:.4f}, num_masked_l2={6:.4f}".format(
                         epoch,
                         g_moving_average.get_value(),
                         f_moving_average.get_value(),

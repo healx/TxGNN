@@ -1,6 +1,7 @@
-from txgnn import TxData, TxGNN, TxEval
 import argparse
 import os
+
+from txgnn import TxData, TxEval, TxGNN
 
 parser = argparse.ArgumentParser("")
 parser.add_argument("--device", type=int, default=0)
@@ -97,7 +98,6 @@ TxGNN.finetune(n_epoch=500, learning_rate=5e-4, train_print_per_n=5, valid_per_n
 
 TxGNN.save_model(model_dir)
 
-from txgnn import TxEval
 
 TxEval = TxEval(model=TxGNN)
 result = TxEval.eval_disease_centric(

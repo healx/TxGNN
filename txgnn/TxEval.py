@@ -1,4 +1,6 @@
-from .utils import *
+import numpy as np
+
+from .utils import disease_centric_evaluation
 
 
 class TxEval:
@@ -73,7 +75,8 @@ class TxEval:
         )
 
         if save_result:
-            import pickle, os
+            import os
+            import pickle
 
             if save_name is None:
                 save_name = os.path.join(self.data_folder, "disease_centric_eval.pkl")
@@ -83,12 +86,7 @@ class TxEval:
 
     def retrieve_disease_idxs_test_set(self, relation):
         relation = "rev_" + relation
-        df_train_valid = pd.concat([self.df_train, self.df_valid])
         df_dd = self.df_test[self.df_test.relation.isin(self.disease_rel_types)]
-        df_dd_train = df_train_valid[
-            df_train_valid.relation.isin(self.disease_rel_types)
-        ]
-
         df_rel_dd = df_dd[df_dd.relation == relation]
         return df_rel_dd.x_idx.unique()
 

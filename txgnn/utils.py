@@ -1,40 +1,24 @@
-import scipy.io
-import urllib.request
+import os
+from collections import Counter
+from random import choice
+
 import dgl
-from dgl.ops import edge_softmax
-import math
 import numpy as np
-import argparse
+import pandas as pd
+import requests
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import dgl.function as fn
-from torch.utils import data
-import pandas as pd
 from sklearn.metrics import (
-    accuracy_score,
+    average_precision_score,
     f1_score,
     roc_auc_score,
-    average_precision_score,
 )
-import copy
-import pickle
-import os
-from argparse import ArgumentParser
-import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from random import choice
-from collections import Counter
-import requests
-from zipfile import ZipFile
-
-import warnings
-
-warnings.filterwarnings("ignore")
-
-# device = torch.device("cuda:0")
 
 from .data_splits.datasplit import DataSplitter
+
+# device = torch.device("cuda:0")
 
 
 def dataverse_download(url, save_path):
@@ -455,7 +439,7 @@ def create_fold_cv(df, split_num, num_splits):
     df_dd_test = df_dd[df_dd.y_idx.isin(test)]
 
     df = df_not_dd
-    train_frac, val_frac, test_frac = [0.83125, 0.11875, 0.05]
+    val_frac, test_frac = [0.11875, 0.05]
     df_train = pd.DataFrame()
     df_valid = pd.DataFrame()
     df_test = pd.DataFrame()
@@ -561,7 +545,7 @@ def construct_negative_graph_each_etype(graph, k, etype, method, weights, device
         neg_dst = dst.repeat_interleave(k)
         try:
             neg_src = weights[etype].multinomial(len(neg_dst), replacement=True)
-        except:
+        except Exception:
             neg_src = torch.Tensor([])
     elif (
         (method == "multinomial_dst")
@@ -571,7 +555,7 @@ def construct_negative_graph_each_etype(graph, k, etype, method, weights, device
         neg_src = src.repeat_interleave(k)
         try:
             neg_dst = weights[etype].multinomial(len(neg_src), replacement=True)
-        except:
+        except Exception:
             neg_dst = torch.Tensor([])
     return {etype: (neg_src.to(device), neg_dst.to(device))}
 
@@ -720,7 +704,7 @@ def evaluate_graph_construct(df_valid, g, neg_sampler, k, device):
             src = torch.Tensor(df_temp.x_idx.values).to(device).to(dtype=torch.int64)
             dst = torch.Tensor(df_temp.y_idx.values).to(device).to(dtype=torch.int64)
             out.update({etype: (src, dst)})
-        except:
+        except Exception:
             print(etype[1])
 
     g_valid = dgl.heterograph(
@@ -733,8 +717,6 @@ def evaluate_graph_construct(df_valid, g, neg_sampler, k, device):
 
 
 def get_all_metrics(y, pred, rels):
-    edge_dict_ = {v: k for k, v in edge_dict.items()}
-
     auroc_rel = {}
     auprc_rel = {}
     for rel in np.unique(rels):
@@ -742,9 +724,9 @@ def get_all_metrics(y, pred, rels):
         y_ = y[index]
         pred_ = pred[index]
         try:
-            auroc_rel[edge_dict_[rel]] = roc_auc_score(y_, pred_)
-            auprc_rel[edge_dict_[rel]] = average_precision_score(y_, pred_)
-        except:
+            auroc_rel[rel] = roc_auc_score(y_, pred_)
+            auprc_rel[rel] = average_precision_score(y_, pred_)
+        except Exception:
             # print(rel)
             pass
     micro_auroc = roc_auc_score(y, pred)
@@ -799,7 +781,7 @@ def get_all_metrics_fb(
 
             auroc_rel[etype] = roc_auc_score(y_, pred_)
             auprc_rel[etype] = average_precision_score(y_, pred_)
-        except:
+        except Exception:
             pass
 
     micro_auroc = roc_auc_score(labels, scores)
@@ -928,11 +910,12 @@ def evaluate_gnnexplainer(
         ).item()
 
         loss = loss_fct(original_predictions, updated_predictions)
-        total_loss = loss + penalty * penalty_scaling
 
         print("----- " + mode + " Result -----")
         print(
-            "Running epoch {0:n} of GNNExplainer training. Mean divergence={1:.4f}, mean penalty={2:.4f}, bce_update={3:.4f}, bce_original={4:.4f}, num_masked_l1={5:.4f}, num_masked_l2={6:.4f}".format(
+            "Running epoch {0:n} of GNNExplainer training. Mean divergence={1:.4f}, "
+            "mean penalty={2:.4f}, bce_update={3:.4f}, bce_original={4:.4f}, "
+            "num_masked_l1={5:.4f}, num_masked_l2={6:.4f}".format(
                 epoch,
                 float(loss.item()),
                 float((penalty * penalty_scaling).item()),
@@ -1022,7 +1005,9 @@ def evaluate_graphmask(
 
         print("----- " + mode + " Result -----")
         print(
-            "Epoch {0:n}, Mean divergence={1:.4f}, mean penalty={2:.4f}, bce_update={3:.4f}, bce_original={4:.4f}, num_masked_l1={5:.4f}, num_masked_l2={6:.4f}".format(
+            "Epoch {0:n}, Mean divergence={1:.4f}, mean penalty={2:.4f}, "
+            "bce_update={3:.4f}, bce_original={4:.4f}, "
+            "num_masked_l1={5:.4f}, num_masked_l2={6:.4f}".format(
                 epoch,
                 float(loss.mean().item()),
                 float(f),
@@ -1142,7 +1127,9 @@ def evaluate_ib(
 
         print("----- " + mode + " Result -----")
         print(
-            "Epoch {0:n}, Mean divergence={1:.4f}, mean penalty={2:.4f}, bce_update={3:.4f}, bce_original={4:.4f}, num_masked_l1={5:.4f}, num_masked_l2={6:.4f}".format(
+            "Epoch {0:n}, Mean divergence={1:.4f}, mean penalty={2:.4f}, "
+            "bce_update={3:.4f}, bce_original={4:.4f}, "
+            "num_masked_l1={5:.4f}, num_masked_l2={6:.4f}".format(
                 epoch,
                 float(loss.mean().item()),
                 float(f),
@@ -1429,7 +1416,7 @@ def convert2str(x):
             pass
         else:
             x = float(x)
-    except:
+    except Exception:
         pass
 
     return str(x)
@@ -1462,7 +1449,7 @@ def process_disease_area_split(data_folder, df, df_test, split):
             if "_" in i:
                 for x in i.split("_"):
                     temp_dict[str(float(x))] = j
-        except:
+        except Exception:
             temp_dict[str(float(i))] = j
 
     id2idx.update(temp_dict)
@@ -1547,31 +1534,10 @@ def disease_centric_evaluation(
     G = G.to(device)
     model = model.eval()
     from sklearn.metrics import (
-        accuracy_score,
-        roc_curve,
         average_precision_score,
-        recall_score,
         confusion_matrix,
-        classification_report,
         roc_auc_score,
-        f1_score,
-        auc,
-        precision_recall_curve,
     )
-
-    dd_etypes = [
-        ("drug", "contraindication", "disease"),
-        ("drug", "indication", "disease"),
-        ("drug", "off-label use", "disease"),
-    ]
-
-    dd_rel_types = ["contraindication", "indication", "off-label use"]
-
-    disease_etypes = [
-        ("disease", "rev_contraindication", "drug"),
-        ("disease", "rev_indication", "drug"),
-        ("disease", "rev_off-label use", "drug"),
-    ]
 
     disease_rel_types = ["rev_contraindication", "rev_indication", "rev_off-label use"]
 
@@ -1643,7 +1609,6 @@ def disease_centric_evaluation(
 
     def calculate_metrics(rel, preds_all, labels_all, mode="drug", subset_mode=True):
         if mode == "drug":
-            etype = dd_rel_types
             ids_rels = disease_ids_rels
             if subset_mode:
                 k10 = int(num_of_diseases_rels[rel] * 0.1)
@@ -1676,8 +1641,6 @@ def disease_centric_evaluation(
                     "rev_contraindication": 7926,
                     "rev_off-label use": 7926,
                 }
-            etype = disease_rel_types
-
         if mode == "drug":
             id2name = id2name_disease
             id2name_rev = id2name_drug
@@ -1731,8 +1694,6 @@ def disease_centric_evaluation(
         for entity_id in ids_all:
             pred = preds_all[rel][entity_id]
             lab = labels_all[rel][entity_id]
-            # remove training set drugs/diseases, which are labelled -1
-            train_ = [i for i, j in lab.items() if j != -1]
             # retrieving only the drugs/diseases that belong to the rel types
             fixed_keys = np.intersect1d(
                 ids_rels[rel], [i for i, j in lab.items() if j != -1]
@@ -1740,7 +1701,6 @@ def disease_centric_evaluation(
             pred_array = np.array([pred[i] for i in fixed_keys])
             lab_array = np.array([lab[i] for i in fixed_keys])
 
-            id2idx = {i: idx for idx, i in enumerate(fixed_keys)}
             idx2id = {idx: i for idx, i in enumerate(fixed_keys)}
 
             pos_idx = np.where(np.array(lab_array) == 1)[0]
@@ -1752,11 +1712,11 @@ def disease_centric_evaluation(
             else:
                 try:
                     auroc[entity_id] = roc_auc_score(lab_array, pred_array)
-                except:
+                except Exception:
                     auroc[entity_id] = -1
                 try:
                     auprc[entity_id] = average_precision_score(lab_array, pred_array)
-                except:
+                except Exception:
                     auprc[entity_id] = -1
 
             ranked_list_entity = np.argsort(pred_array)[::-1]
@@ -1887,8 +1847,8 @@ def disease_centric_evaluation(
                 out_dict_std[i] = np.std(list(result[i].values()))
 
         if show_plot:
-            import seaborn as sns
             import matplotlib.pyplot as plt
+            import seaborn as sns
 
             sns.scatterplot(
                 list(range(len(result["Recall@5%"]))), list(result["# of Pos"].values())
@@ -2073,8 +2033,8 @@ def disease_centric_evaluation(
         preds_all[rel_type], labels_all[rel_type] = preds_, labels_
         if only_prediction:
             for i, j in labels_all[rel_type].items():
-                for k, l in j.items():
-                    if l == -1:
+                for k, label in j.items():
+                    if label == -1:
                         labels_all[rel_type][i][k] = 1
 
         results, _ = calculate_metrics(rel_type, preds_all, labels_all, mode="disease")
@@ -2125,9 +2085,6 @@ def find_two_hops(x_idx_value, x_type_value, df):
     return pd.concat([one_hop, two_hop]).drop_duplicates()
 
 
-import torch
-import numpy as np
-import dgl
 
 
 def remove_random_edges(hetero_graph, K):
@@ -2208,13 +2165,7 @@ def add_random_edges(hetero_graph, K):
     return hetero_graph, added_edges
 
 
-import torch
-import numpy as np
-import dgl
 
-import torch
-import numpy as np
-import dgl
 
 
 def randomize_edges(hetero_graph):

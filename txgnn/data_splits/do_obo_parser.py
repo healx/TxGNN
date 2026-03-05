@@ -9,11 +9,11 @@
 # -*- coding: UTF-8 -*-
 from __future__ import print_function
 
-import sys
 import os
+import sys
+
 from goatools.godag.obo_optional_attributes import OboOptionalAttrs
-from goatools.godag.typedef import TypeDef
-from goatools.godag.typedef import add_to_typedef
+from goatools.godag.typedef import TypeDef, add_to_typedef
 
 GraphEngines = ("pygraphviz", "pydot")
 
@@ -610,7 +610,7 @@ class GODag(dict):
             try:
                 node = grph.get_node(self.label_wrap(rec.item_id))
                 node.attr.update(fillcolor="plum")
-            except:
+            except Exception:
                 continue
 
         return grph
@@ -685,7 +685,7 @@ class GODag(dict):
             for goid in goids:
                 try:
                     parents.update(self[goid].get_all_parents())
-                except:
+                except Exception:
                     bad_goids.add(goid.strip())
             # Add the GO parents of all GO IDs in the current gene's association
             goids.update(parents)

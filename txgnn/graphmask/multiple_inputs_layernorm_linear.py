@@ -1,14 +1,13 @@
 import math
 
 import torch
-from torch.nn import Linear, LayerNorm
-from torch.nn import Parameter
-from torch.nn import init
+from torch.nn import LayerNorm, Linear, Parameter, init
 
 
 class MultipleInputsLayernormLinear(torch.nn.Module):
     """
-    Properly applies layernorm to a list of inputs, allowing for separate rescaling of potentially unnormalized components.
+    Properly applies layernorm to a list of inputs, allowing for separate rescaling of
+    potentially unnormalized components.
     This is inspired by the implementation of layer norm for LSTM from the original paper.
     """
 
