@@ -35,6 +35,20 @@ exclude = ["test"]
 [tool.setuptools]
 include-package-data = true
 
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = []
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-single-line = false
+known-first-party = ["txgnn"]
+
 [tool.uv]
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64' and python_full_version == '3.11.*'"]
 
