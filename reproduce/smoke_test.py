@@ -37,7 +37,18 @@ def main():
         path_length=2,
     )
 
-    print("Smoke test passed: model initialized.")
+    # Disease-area split smoke check: requires torch_geometric (PyG).
+    # Import here to surface missing dependency early and explicitly.
+    from torch_geometric.utils import k_hop_subgraph  # noqa: F401
+    tx_data.prepare_split(
+        split="anemia",
+        seed=42,
+        test_size=0.01,
+        one_hop=True,
+        mask_ratio=0.01,
+    )
+
+    print("Smoke test passed: model initialized and disease-area split ran.")
     return 0
 
 
